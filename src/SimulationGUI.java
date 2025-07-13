@@ -32,10 +32,29 @@ public class SimulationGUI extends JFrame {
         // Control panel
         JPanel controlPanel = new JPanel();
         JButton tickButton = new JButton("Tick");
+
+        // Add text field for number of ticks
+        JTextField tickCountField = new JTextField("1", 3);
+        tickCountField.setToolTipText("Number of ticks to run");
+
         tickButton.addActionListener(e -> {
-            mainApp.tick();
-            updateGUI();
+            try {
+                int tickCount = Integer.parseInt(tickCountField.getText().trim());
+                if (tickCount > 0) {
+                    for (int i = 0; i < tickCount; i++) {
+                        mainApp.tick();
+                    }
+                    updateGUI();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Please enter a positive number", "Invalid Input", JOptionPane.WARNING_MESSAGE);
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid integer", "Invalid Input", JOptionPane.ERROR_MESSAGE);
+            }
         });
+
+        controlPanel.add(new JLabel("Ticks:"));
+        controlPanel.add(tickCountField);
         controlPanel.add(tickButton);
         mainPanel.add(controlPanel, BorderLayout.SOUTH);
 
@@ -113,27 +132,47 @@ public class SimulationGUI extends JFrame {
     private void updateGUI() {
         updateMerchantList();
         updateOrderList();
-        updatePriceList(); // New method call
+        updatePriceList();
         updateEventLog();
         updateDetailsArea();
-        setTitle("Trading Simulation - Tick: " + Main.numTicks);
+        // do somethign liekt hat for the tick
+        // (Main.numTicks-1 == -1 ? "Initial State" Main.numTicks-1)
+
+        setTitle("Trading Simulation - Tick: "  + ((Main.numTicks - 1 == -1) ? "Initial State" : (Main.numTicks - 1)));
     }
 
     private void updateMerchantList() {
         int selectedIndex = merchantList.getSelectedIndex();
-        merchantListModel.clear();
-        for (Merchant merchant : Merchant.MERCHANTS) {
-            merchantListModel.addElement(merchant.name);
-        }
+        String selectedMerchantName = null;
         if (selectedIndex != -1 && selectedIndex < merchantListModel.size()) {
-            merchantList.setSelectedIndex(selectedIndex);
+            selectedMerchantName = merchantListModel.getElementAt(selectedIndex);
+        }
+
+        merchantListModel.clear();
+
+        // Sort merchants by wealth (highest to lowest)
+        java.util.Arrays.sort(Merchant.MERCHANTS, (m1, m2) -> Double.compare(m2.wealth, m1.wealth));
+
+        for (Merchant merchant : Merchant.MERCHANTS) {
+            String displayText = String.format("%s {%.2f}", merchant.name, merchant.wealth);
+            merchantListModel.addElement(displayText);
+        }
+
+        // Restore selection if possible
+        if (selectedMerchantName != null) {
+            for (int i = 0; i < merchantListModel.size(); i++) {
+                if (merchantListModel.getElementAt(i).startsWith(selectedMerchantName.split(" \\{")[0])) {
+                    merchantList.setSelectedIndex(i);
+                    break;
+                }
+            }
         }
     }
 
     private void updateOrderList() {
         int selectedIndex = orderList.getSelectedIndex();
         orderListModel.clear();
-        for (Order order : OrderBook.ORDERS) {
+        for (Order order : OrderBook.ORDER_HISTORY) {
             orderListModel.addElement(order);
         }
         if (selectedIndex != -1 && selectedIndex < orderListModel.size()) {
@@ -146,11 +185,14 @@ public class SimulationGUI extends JFrame {
         if (Item.ITEM_NAMES != null && ValuationChart.TYPE_PRICES != null) {
             for (int i = 0; i < Item.ITEM_NAMES.length && i < ValuationChart.TYPE_PRICES.length; i++) {
                 if (Item.ITEM_NAMES[i] != null) {
-                    String priceDisplay = String.format("%s: $%.2f", Item.ITEM_NAMES[i], ValuationChart.TYPE_PRICES[i]);
+                    String priceDisplay = String.format("%s: $%.2f (%s)", Item.ITEM_NAMES[i], ValuationChart.TYPE_PRICES[i], Item.ITEM_TYPE_COUNTS[i]);
                     priceListModel.addElement(priceDisplay);
                 }
             }
         }
+        // Force GUI refresh
+        priceList.revalidate();
+        priceList.repaint();
     }
 
     private void updateEventLog() {

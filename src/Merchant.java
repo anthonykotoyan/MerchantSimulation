@@ -35,10 +35,11 @@ public class Merchant {
         this.name = Util.nameGenerator(2, 3);
     }
 
-    public static void createMerchants(int size) {
+    public static void createMerchants(int size, double initialWealth) {
         MERCHANTS = new Merchant[size];
         for (int i = 0; i < size; i++) {
             Merchant merchant = new Merchant();
+            merchant.wealth = initialWealth;
             MERCHANTS[i] = merchant;
         }
     }
@@ -50,22 +51,47 @@ public class Merchant {
     }
 
     public void tick() {
-        System.out.println("Merchant: " + name + " is ticking...");
+        checkAllExpiredOrders();
         placePreferredBuyOrders();
         placePreferredSellOrders();
         execPreferredOrders();
-        checkExpiredOrders();
-    }
 
+    }
     public void checkExpiredOrders() {
         for (int i=0; i < orders.size(); i++) {
             Order order = orders.get(i);
-            if (order.age >= patience || order.executed) {
+            if (order.executed){
+                orders.remove(i);
+                i--;
+            }
+            else if (order.age >= patience) {
                 orders.remove(i);
                 i--;
                 OrderBook.removeOrder(order);
+                order.removed = true;
+
+            }
+            else if (order.type == Order.Type.BUY && wealth < order.price) {
+                order.invalid = true;
+                OrderBook.removeOrder(order);
+                orders.remove(i);
+                i--;
+            }
+            else if (order.type == Order.Type.SELL && !inventory.contains(order.item)) {
+                order.invalid = true;
+                OrderBook.removeOrder(order);
+                orders.remove(i);
+                i--;
+
             }
         }
+    }
+
+    public void checkAllExpiredOrders() {
+        for (Merchant merchant : MERCHANTS) {
+            merchant.checkExpiredOrders();
+        }
+
     }
 
     public double calculateInventoryWorth() {
@@ -85,13 +111,22 @@ public class Merchant {
 
         if (order.type == Order.Type.BUY) {
             netWealth[0] -= typeNeg * order.price;
-            netWealth[1] += typeNeg * ValuationChart.getPrice(order.item.type);
+            netWealth[1] += typeNeg * ValuationChart.getPrice(order.item.type) * (1 + order.item.condition);
         } else if (order.type == Order.Type.SELL) {
             netWealth[0] += typeNeg * order.price;
-            netWealth[1] -= typeNeg * ValuationChart.getPrice(order.item.type);
+            netWealth[1] -= typeNeg * ValuationChart.getPrice(order.item.type) * (1 + order.item.condition);
         }
 
         return netWealth;
+    }
+
+    public boolean itemAlreadyOrdered(Item item, Order.Type type) {
+        for (Order order : orders) {
+            if (type == order.type && order.item.equals(item)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public double calculateDesire(Order order, boolean exec) {
@@ -109,13 +144,18 @@ public class Merchant {
         for (int i = 0; i < Item.ITEM_POOL.length; i++) {
             Item item = Item.ITEM_POOL[i];
             if (inventory.contains(item)) {
-                desires[i] = Double.NEGATIVE_INFINITY; // Already own this item
-                prices[i] = 0.0;
+                desires[i] = Double.NEGATIVE_INFINITY; // Don't buy items already in inventory
                 continue;
             }
+            if (itemAlreadyOrdered(item, Order.Type.BUY)) {
+                desires[i] = Double.NEGATIVE_INFINITY; // Don't buy items already ordered
+                continue;
+            }
+
+
             double marketPrice = ValuationChart.getPrice(item.type);
             double valued_price = marketPrice * (1 + item.condition);
-            double buy_price = valued_price * (0.5 + (lavishness*Math.random()) * 1.5);
+            double buy_price = valued_price * (0.5 + (lavishness) * 1.5);
             buy_price = Math.min(buy_price, wealth);
 
             Order simulatedOrder = new Order(Order.Type.BUY, null, item, buy_price);
@@ -127,7 +167,7 @@ public class Merchant {
             double chanceToSell = (competitiveness - 0.5) / 1.5;
             chanceToSell = Math.max(0.0, Math.min(chanceToSell, 1.0));
 
-            desires[i] = desireScore * chanceToSell;
+            desires[i] = desireScore * chanceToSell * (1 + CONDITION_WEIGHT * item.condition);
             prices[i] = buy_price;
         }
 
@@ -139,9 +179,13 @@ public class Merchant {
         double[] prices = new double[inventory.size()];
         for (int i = 0; i < inventory.size(); i++) {
             Item item = inventory.get(i);
+            if (itemAlreadyOrdered(item, Order.Type.SELL)) {
+                desires[i] = Double.NEGATIVE_INFINITY; // Don't sell items already ordered
+                continue;
+            }
             double marketPrice = ValuationChart.getPrice(item.type);
             double valued_price = marketPrice * (1 + item.condition);
-            double sell_price = valued_price * (0.5 + (greed*Math.random()) * 1.5);
+            double sell_price = valued_price * (0.5 + (greed) * 1.5);
 
             Order simulatedOrder = new Order(Order.Type.SELL, null, item, sell_price);
 
@@ -152,7 +196,7 @@ public class Merchant {
             double chanceToSell = (competitiveness - 0.5) / 1.5;
             chanceToSell = Math.max(0.0, Math.min(chanceToSell, 1.0));
 
-            desires[i] = desireScore * chanceToSell;
+            desires[i] = desireScore * chanceToSell * (1 - CONDITION_WEIGHT * item.condition);
             prices[i] = sell_price;
         }
 
@@ -163,15 +207,17 @@ public class Merchant {
         double[] desires = new double[OrderBook.ORDERS.size()];
         for (int i = 0; i < OrderBook.ORDERS.size(); i++) {
             if (OrderBook.ORDERS.get(i).owner == this) {
-                desires[i] = Double.NEGATIVE_INFINITY; // Skip own orders
+                desires[i] = Double.NEGATIVE_INFINITY; // Don't execute own orders
                 continue;
             }
             if (OrderBook.ORDERS.get(i).type == Order.Type.BUY&&
                     !inventory.contains(OrderBook.ORDERS.get(i).item)) {
+                desires[i] = Double.NEGATIVE_INFINITY; // Can't execute a buy order for an item not in inventory
                 continue;
             }
             if (OrderBook.ORDERS.get(i).type == Order.Type.SELL&&
                     wealth < OrderBook.ORDERS.get(i).price) {
+                desires[i] = Double.NEGATIVE_INFINITY; // Can't execute a sell order if can't afford it
                 continue;
             }
             double desireScore = calculateDesire(OrderBook.ORDERS.get(i), true);
@@ -202,7 +248,7 @@ public class Merchant {
                 }
             }
 
-            if (maxIndex != -1 && Math.random() * 2 > composure) {
+            if (maxIndex != -1 && Math.random() * 2 > composure && desires[maxIndex] != 0) {
                 Item item = Item.ITEM_POOL[maxIndex];
 
                 if (prices[maxIndex] > wealth) {
@@ -212,7 +258,7 @@ public class Merchant {
 
                 Order order = new Order(Order.Type.BUY, this, item, prices[maxIndex]);
                 orders.add(order);
-                OrderBook.ORDERS.add(order);
+                OrderBook.addOrder(order);
                 Main.eventLog.add(String.format("[%d] PLACE: %s placed a BUY order for %s at %.2f", Main.numTicks, this.name, item.name, prices[maxIndex]));
 
                 desires[maxIndex] = Double.NEGATIVE_INFINITY;
@@ -241,11 +287,12 @@ public class Merchant {
             }
 
             if (maxIndex != -1 && Math.random() * 2 > composure) {
+
                 Item item = inventory.get(maxIndex);
-                Order order = new Order(Order.Type.SELL, this, item, prices[0]);
+                Order order = new Order(Order.Type.SELL, this, item, prices[maxIndex]);
                 orders.add(order);
-                OrderBook.ORDERS.add(order);
-                Main.eventLog.add(String.format("[%d] PLACE: %s placed a SELL order for %s at %.2f", Main.numTicks, this.name, item.name, prices[0]));
+                OrderBook.addOrder(order);
+                Main.eventLog.add(String.format("[%d] PLACE: %s placed a SELL order for %s at %.2f", Main.numTicks, this.name, item.name, prices[maxIndex]));
                 desires[maxIndex] = Double.NEGATIVE_INFINITY; // Mark as handled
             }
         }
@@ -254,10 +301,13 @@ public class Merchant {
 
     public void execPreferredOrders() {
         double[] desires = desireToExec();
+        // Snapshot current orders so modifications don't shift indices
+        List<Order> availableOrders = new ArrayList<>(OrderBook.ORDERS);
         int numExecs = Math.min((int) (Math.random() * aggressiveness + 1), desires.length);
         for (int i = 0; i < numExecs; i++) {
             double maxDesire = Double.NEGATIVE_INFINITY;
             int maxIndex = -1;
+
             for (int j = 0; j < desires.length; j++) {
                 if (desires[j] > maxDesire) {
                     maxDesire = desires[j];
@@ -265,9 +315,29 @@ public class Merchant {
                 }
             }
             if (maxIndex != -1 && Math.random() * 2 > composure) {
-                Order order = OrderBook.ORDERS.get(maxIndex);
+                // Ensure index is within our snapshot
+                if (maxIndex < 0 || maxIndex >= availableOrders.size()) {
+                    desires[maxIndex] = Double.NEGATIVE_INFINITY;
+                    continue;
+                }
+                Order order = availableOrders.get(maxIndex);
+
+                if (order.owner == this) {
+                    desires[maxIndex] = Double.NEGATIVE_INFINITY; // Don't execute own orders
+                    continue;
+                }
+                if (order.type == Order.Type.BUY && !inventory.contains(order.item)) {
+                    desires[maxIndex] = Double.NEGATIVE_INFINITY; // Can't execute a buy order for an item not in inventory
+                    continue;
+                }
+                if (order.type == Order.Type.SELL && wealth < order.price) {
+                    desires[maxIndex] = Double.NEGATIVE_INFINITY; // Can't execute a sell order if can't afford it
+                    continue;
+                }
                 order.execute(this);
                 desires[maxIndex] = Double.NEGATIVE_INFINITY;
+                ValuationChart.updateTypePrice(order.item.type, order.type, order.price, false);
+
             }
         }
     }
@@ -302,10 +372,10 @@ public class Merchant {
     }
 
     public String toString() {
-        return String.format(
-            "Merchant: %s\nWealth: %.2f\nInventory Worth: %.2f\nRisk: %.2f\nAmbition: %.2f\nComposure: %.2f\nMaterialism: %.2f\nAggressiveness: %.2f\nGreed: %.2f\nLavishness: %.2f",
-            name, wealth, calculateInventoryWorth(), risk, ambition, composure, materialism, aggressiveness, greed, lavishness
-        );
+        // add inventory worth to the string
+
+        return String.format("Merchant: %s\nWealth: %.2f\nInventory Worth: %.2f\nRisk: %.2f\nAmbition: %.2f\nComposure: %.2f\nMaterialism: %.2f\nGreed: %.2f\nLavishness: %.2f\nAggressiveness: %.2f\nPatience: %.2f",
+                name, wealth, calculateInventoryWorth(), risk, ambition, composure, materialism, greed, lavishness, aggressiveness, patience);
     }
 
     public void printStats(){

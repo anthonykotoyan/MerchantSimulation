@@ -10,6 +10,9 @@ public class Order {
     public final double price;
     public double age;
     public boolean executed = false;
+    public boolean removed = false;
+    public boolean invalid = false;
+    public Merchant executedBy = null;
 
     public Order(Type type, Merchant owner, Item item, double price) {
         this.id = UUID.randomUUID().toString();
@@ -32,7 +35,18 @@ public class Order {
 
                 event = String.format("EXEC_BUY: %s bought %s from %s for %.2f", owner.name, item.name, other.name, price);
             } else {
-                event = String.format("FAIL_BUY: %s failed to buy %s from %s for %.2f", owner.name, item.name, other.name, price);
+                // Detailed failure reason for better debugging
+                boolean buyerHasFunds = owner.wealth >= price;
+                boolean sellerHasItem = other.inventory.contains(item);
+                String reason = "";
+                if (!buyerHasFunds && !sellerHasItem) {
+                    reason = String.format(" (buyer insufficient funds: %.2f < %.2f AND seller doesn't have the item)", owner.wealth, price);
+                } else if (!buyerHasFunds) {
+                    reason = String.format(" (buyer insufficient funds: %.2f < %.2f)", owner.wealth, price);
+                } else if (!sellerHasItem) {
+                    reason = " (seller doesn't have the item)";
+                }
+                event = String.format("\uD83D\uDFE5FAIL_BUY: %s failed to buy %s from %s for %.2f%s", owner.name, item.name, other.name, price, reason);
             }
         } else if (type == Type.SELL) {
             if (owner.inventory.contains(item) && other.wealth >= price) {
@@ -42,11 +56,25 @@ public class Order {
                 other.inventory.add(item);
                 event = String.format("EXEC_SELL: %s sold %s to %s for %.2f", owner.name, item.name, other.name, price);
             } else {
-                event = String.format("FAIL_SELL: %s failed to sell %s to %s for %.2f", owner.name, item.name, other.name, price);
+                // Detailed failure reason for better debugging
+                boolean ownerHasItem = owner.inventory.contains(item);
+                boolean buyerHasWealth = other.wealth >= price;
+
+                String reason = "";
+                if (!ownerHasItem && !buyerHasWealth) {
+                    reason = String.format(" (seller doesn't have item AND buyer insufficient funds: %.2f < %.2f)", other.wealth, price);
+                } else if (!ownerHasItem) {
+                    reason = " (seller doesn't have the item)";
+                } else if (!buyerHasWealth) {
+                    reason = String.format(" (buyer insufficient funds: %.2f < %.2f)", other.wealth, price);
+                }
+
+                event = String.format("\uD83D\uDFE5FAIL_SELL: %s failed to sell %s to %s for %.2f%s", owner.name, item.name, other.name, price, reason);
             }
         }
         Main.eventLog.add(String.format("[%d] %s", Main.numTicks, event));
         this.executed = true;
+        this.executedBy = other;
         OrderBook.removeOrder(this);
     }
 
@@ -55,8 +83,16 @@ public class Order {
     }
 
     public String toString() {
-        return String.format("ID: %s... | %s | %s | %.2f",
-                id.substring(0, 8), type, item.name, price);
+        String status = executed ? " \uD83D\uDFE5[EXEC]" : " \uD83D\uDFE9[OPEN]";
+        if (removed) {
+            status = " \uD83D\uDFE8[REMOVED]";
+        }
+        if (invalid) {
+            status = " \uD83D\uDFE6[INVALID]";
+        }
+
+        return String.format("%s %s → %s: \"%s\"(%.2f) @ $%.2f",
+                status, owner.name, type,item.name, item.condition, price);
     }
 
     public String getDetailedString() {
@@ -68,8 +104,12 @@ public class Order {
             "  Item: %s\n" +
             "  Condition: %.2f\n" +
             "  Price: %.2f\n" +
-            "  Age: %.0f ticks",
-            id, type, (owner != null ? owner.name : "N/A"), item.name, item.condition, price, age
+            "  Age: %.0f ticks\n" +
+            "  Status: %s\n" +
+            "  Executed By: %s",
+            id, type, (owner != null ? owner.name : "N/A"), item.name, item.condition, price, age,
+            executed ? "EXECUTED" : "ACTIVE",
+            (executedBy != null ? executedBy.name : "N/A")
         );
     }
 }

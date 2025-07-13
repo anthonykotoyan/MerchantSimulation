@@ -78,7 +78,7 @@ public class Util {
 
     public static String itemNameGenerator(){
         String name = nameGenerator(1,2);
-        double chanceForAnotherWord = .5;
+        double chanceForAnotherWord = .25;
         double chanceForJoiner = .25;
         if (Math.random() < chanceForAnotherWord) {
             if (Math.random() < chanceForJoiner) {
