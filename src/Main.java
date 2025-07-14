@@ -25,6 +25,8 @@ public class Main {
         System.out.println("\nTick: " + numTicks + "\n");
         Merchant.tickAll();
         OrderBook.tickAll();
+        // Record price history after updates
+        ValuationChart.recordPrices();
         numTicks++;
     }
 

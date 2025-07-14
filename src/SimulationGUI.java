@@ -1,6 +1,7 @@
 import javax.swing.*;
 import java.awt.*;
-import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.List;
 
 public class SimulationGUI extends JFrame {
 
@@ -9,11 +10,13 @@ public class SimulationGUI extends JFrame {
     private JList<Order> orderList;
     private JList<String> priceList; // New component for item prices
     private JTextArea eventLogArea;
-    private JTextArea detailsArea; // For merchant stats or order details
+    private JPanel detailsPanel;
+    private CardLayout detailsCardLayout;
+    private JTextArea detailsTextArea;
+    private PriceHistoryPanel priceHistoryPanel;
     private DefaultListModel<String> merchantListModel;
     private DefaultListModel<Order> orderListModel;
     private DefaultListModel<String> priceListModel; // New model for prices
-    private DefaultListModel<String> eventLogModel;
 
     public SimulationGUI(Main mainApp) {
         this.mainApp = mainApp;
@@ -88,15 +91,30 @@ public class SimulationGUI extends JFrame {
         priceListModel = new DefaultListModel<>();
         priceList = new JList<>(priceListModel);
         priceList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        priceList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                merchantList.clearSelection();
+                orderList.clearSelection();
+                updateDetailsArea();
+            }
+        });
         JScrollPane priceListScrollPane = new JScrollPane(priceList);
         priceListScrollPane.setBorder(BorderFactory.createTitledBorder("Item Prices"));
 
-        // Details Area
-        detailsArea = new JTextArea();
-        detailsArea.setEditable(false);
-        detailsArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        JScrollPane detailsScrollPane = new JScrollPane(detailsArea);
-        detailsScrollPane.setBorder(BorderFactory.createTitledBorder("Details"));
+        // Details Panel with CardLayout for text and graph
+        detailsCardLayout = new CardLayout();
+        detailsPanel = new JPanel(detailsCardLayout);
+        // Text card
+        detailsTextArea = new JTextArea();
+        detailsTextArea.setEditable(false);
+        detailsTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        JScrollPane textScrollPane = new JScrollPane(detailsTextArea);
+        textScrollPane.setBorder(BorderFactory.createTitledBorder("Details"));
+        detailsPanel.add(textScrollPane, "TEXT");
+        // Graph card using custom PriceHistoryPanel
+        priceHistoryPanel = new PriceHistoryPanel(Collections.emptyList());
+        priceHistoryPanel.setBorder(BorderFactory.createTitledBorder("Price History"));
+        detailsPanel.add(priceHistoryPanel, "CHART");
 
         // Event Log
         eventLogArea = new JTextArea();
@@ -113,7 +131,7 @@ public class SimulationGUI extends JFrame {
         leftSplit.setResizeWeight(0.7);
 
         // Center Panel
-        JSplitPane centerSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, leftSplit, detailsScrollPane);
+        JSplitPane centerSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, leftSplit, detailsPanel);
         centerSplit.setResizeWeight(0.6);
 
         // Main Split Pane
@@ -135,8 +153,6 @@ public class SimulationGUI extends JFrame {
         updatePriceList();
         updateEventLog();
         updateDetailsArea();
-        // do somethign liekt hat for the tick
-        // (Main.numTicks-1 == -1 ? "Initial State" Main.numTicks-1)
 
         setTitle("Trading Simulation - Tick: "  + ((Main.numTicks - 1 == -1) ? "Initial State" : (Main.numTicks - 1)));
     }
@@ -206,14 +222,27 @@ public class SimulationGUI extends JFrame {
     }
 
     private void updateDetailsArea() {
+        // Price history selected: show graph
+        if (priceList.getSelectedIndex() != -1) {
+            int idx = priceList.getSelectedIndex();
+            List<Double> history = ValuationChart.TYPE_PRICE_HISTORY.get(idx);
+            priceHistoryPanel.setHistory(history);
+            priceHistoryPanel.repaint();
+            detailsCardLayout.show(detailsPanel, "CHART");
+            return;
+        }
+        // Merchant selected: show text
         if (merchantList.getSelectedIndex() != -1) {
             Merchant selectedMerchant = Merchant.MERCHANTS[merchantList.getSelectedIndex()];
-            detailsArea.setText(selectedMerchant.getStats());
+            detailsTextArea.setText(selectedMerchant.getStats());
+            detailsCardLayout.show(detailsPanel, "TEXT");
         } else if (orderList.getSelectedIndex() != -1) {
             Order selectedOrder = orderList.getSelectedValue();
-            detailsArea.setText(selectedOrder.getDetailedString());
+            detailsTextArea.setText(selectedOrder.getDetailedString());
+            detailsCardLayout.show(detailsPanel, "TEXT");
         } else {
-            detailsArea.setText("Select a merchant or an order to see details.");
+            detailsTextArea.setText("Select a merchant, order, or price item to see details.");
+            detailsCardLayout.show(detailsPanel, "TEXT");
         }
     }
 }
