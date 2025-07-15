@@ -3,7 +3,8 @@ import java.util.UUID;
 public class Order {
 
     public enum Type { BUY, SELL }
-    public final String id;
+    public static int nextId = 1;
+    public final int id;
     public final Type type;
     public final Merchant owner;
     public final Item item;
@@ -15,7 +16,7 @@ public class Order {
     public Merchant executedBy = null;
 
     public Order(Type type, Merchant owner, Item item, double price) {
-        this.id = UUID.randomUUID().toString();
+        this.id = nextId++;
         this.type = type;
         this.owner = owner;
         this.item = item;
@@ -33,7 +34,7 @@ public class Order {
                 other.inventory.remove(item);
                 owner.inventory.add(item);
 
-                event = String.format("EXEC_BUY: %s bought %s from %s for %.2f", owner.name, item.name, other.name, price);
+                event = String.format("EXEC_BUY: %s bought %s (%.2f) from %s for %.2f [ID:%d]", owner.name, item.name, item.condition, other.name, price, id);
             } else {
                 // Detailed failure reason for better debugging
                 boolean buyerHasFunds = owner.wealth >= price;
@@ -46,7 +47,7 @@ public class Order {
                 } else if (!sellerHasItem) {
                     reason = " (seller doesn't have the item)";
                 }
-                event = String.format("\uD83D\uDFE5FAIL_BUY: %s failed to buy %s from %s for %.2f%s", owner.name, item.name, other.name, price, reason);
+                event = String.format("\uD83D\uDFE5FAIL_BUY: %s failed to buy %s (%.2f) from %s for %.2f%s [ID:%d]", owner.name, item.name, item.condition, other.name, price, reason, id);
             }
         } else if (type == Type.SELL) {
             if (owner.inventory.contains(item) && other.wealth >= price) {
@@ -54,7 +55,7 @@ public class Order {
                 other.wealth -= price;
                 owner.inventory.remove(item);
                 other.inventory.add(item);
-                event = String.format("EXEC_SELL: %s sold %s to %s for %.2f", owner.name, item.name, other.name, price);
+                event = String.format("EXEC_SELL: %s sold %s (%.2f) to %s for %.2f [ID:%d]", owner.name, item.name, item.condition, other.name, price, id);
             } else {
                 // Detailed failure reason for better debugging
                 boolean ownerHasItem = owner.inventory.contains(item);
@@ -69,7 +70,7 @@ public class Order {
                     reason = String.format(" (buyer insufficient funds: %.2f < %.2f)", other.wealth, price);
                 }
 
-                event = String.format("\uD83D\uDFE5FAIL_SELL: %s failed to sell %s to %s for %.2f%s", owner.name, item.name, other.name, price, reason);
+                event = String.format("\uD83D\uDFE5FAIL_SELL: %s failed to sell %s (%.2f) to %s for %.2f%s [ID:%d]", owner.name, item.name, item.condition, other.name, price, reason, id);
             }
         }
         Main.eventLog.add(String.format("[%d] %s", Main.numTicks, event));
@@ -98,7 +99,7 @@ public class Order {
     public String getDetailedString() {
         return String.format(
             "Order Details:\n" +
-            "  ID: %s\n" +
+            "  ID: %d\n" +
             "  Type: %s\n" +
             "  Owner: %s\n" +
             "  Item: %s\n" +

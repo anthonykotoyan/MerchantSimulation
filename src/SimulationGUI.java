@@ -188,9 +188,12 @@ public class SimulationGUI extends JFrame {
     private void updateOrderList() {
         int selectedIndex = orderList.getSelectedIndex();
         orderListModel.clear();
-        for (Order order : OrderBook.ORDER_HISTORY) {
-            orderListModel.addElement(order);
+        // Display orders with most recent on top
+        List<Order> history = OrderBook.ORDER_HISTORY;
+        for (int i = history.size() - 1; i >= 0; i--) {
+            orderListModel.addElement(history.get(i));
         }
+        // Restore selection
         if (selectedIndex != -1 && selectedIndex < orderListModel.size()) {
             orderList.setSelectedIndex(selectedIndex);
         }

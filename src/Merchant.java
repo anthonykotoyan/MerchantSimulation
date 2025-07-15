@@ -155,7 +155,10 @@ public class Merchant {
 
             double marketPrice = ValuationChart.getPrice(item.type);
             double valued_price = marketPrice * (1 + item.condition);
-            double buy_price = valued_price * (0.5 + (lavishness) * 1.5);
+            double rarityFactor = (double) Item.ITEM_POOL.length / Item.ITEM_NAMES.length;
+            rarityFactor =( rarityFactor-Item.ITEM_TYPE_COUNTS[item.type] )/ (double) Item.ITEM_POOL.length;
+
+            double buy_price = valued_price * (0.5 + (lavishness) * 1.5)* (1 + rarityFactor* 0.5);
             buy_price = Math.min(buy_price, wealth);
 
             Order simulatedOrder = new Order(Order.Type.BUY, null, item, buy_price);
@@ -185,7 +188,11 @@ public class Merchant {
             }
             double marketPrice = ValuationChart.getPrice(item.type);
             double valued_price = marketPrice * (1 + item.condition);
-            double sell_price = valued_price * (0.5 + (greed) * 1.5);
+            // make sell price also increase if the item is rare (how many of its type there are/total items)
+
+            double rarityFactor = (double) Item.ITEM_POOL.length / Item.ITEM_NAMES.length;
+            rarityFactor =( rarityFactor-Item.ITEM_TYPE_COUNTS[item.type] )/ (double) Item.ITEM_POOL.length;
+            double sell_price = valued_price * (0.5 + (greed) * 1.5)  * (1 + rarityFactor* 0.5);
 
             Order simulatedOrder = new Order(Order.Type.SELL, null, item, sell_price);
 
@@ -226,7 +233,10 @@ public class Merchant {
             } else if (OrderBook.ORDERS.get(i).type == Order.Type.SELL) {
                 desireScore *= (1 - CONDITION_WEIGHT * OrderBook.ORDERS.get(i).item.condition);
             }
-            desires[i] = desireScore;
+            double rarityFactor = (double) Item.ITEM_POOL.length / Item.ITEM_NAMES.length;
+            rarityFactor =( rarityFactor-Item.ITEM_TYPE_COUNTS[OrderBook.ORDERS.get(i).item.type] )/ (double) Item.ITEM_POOL.length;
+
+            desires[i] = desireScore* (1 + rarityFactor * 0.5);
         }
         return desires;
     }
@@ -259,7 +269,7 @@ public class Merchant {
                 Order order = new Order(Order.Type.BUY, this, item, prices[maxIndex]);
                 orders.add(order);
                 OrderBook.addOrder(order);
-                Main.eventLog.add(String.format("[%d] PLACE: %s placed a BUY order for %s at %.2f", Main.numTicks, this.name, item.name, prices[maxIndex]));
+                Main.eventLog.add(String.format("[%d] PLACE: %s placed a BUY order for %s (%.2f) at %.2f [ID:%d]", Main.numTicks, this.name, item.name, item.condition, prices[maxIndex], order.id));
 
                 desires[maxIndex] = Double.NEGATIVE_INFINITY;
             }
@@ -292,7 +302,7 @@ public class Merchant {
                 Order order = new Order(Order.Type.SELL, this, item, prices[maxIndex]);
                 orders.add(order);
                 OrderBook.addOrder(order);
-                Main.eventLog.add(String.format("[%d] PLACE: %s placed a SELL order for %s at %.2f", Main.numTicks, this.name, item.name, prices[maxIndex]));
+                Main.eventLog.add(String.format("[%d] PLACE: %s placed a SELL order for %s (%.2f) at %.2f [ID:%d]", Main.numTicks, this.name, item.name, item.condition, prices[maxIndex], order.id));
                 desires[maxIndex] = Double.NEGATIVE_INFINITY; // Mark as handled
             }
         }

@@ -10,8 +10,8 @@ public class Main {
     public static final List<String> eventLog = new ArrayList<>();
 
     public static void main(String[] args) {
-        Item.createItemPool(100, 10);
-        Merchant.createMerchants(5, 100);
+        Item.createItemPool(1, 1);
+        Merchant.createMerchants(2, 100);
         initInventory();
         ValuationChart.setTypePrices();
 
