@@ -5,6 +5,8 @@ import java.util.List;
 
 public class SimulationGUI extends JFrame {
 
+    private static final int FONT_SIZE = 25;
+
     private final Main mainApp;
     private JList<String> merchantList;
     private JList<Order> orderList;
@@ -59,6 +61,18 @@ public class SimulationGUI extends JFrame {
         controlPanel.add(new JLabel("Ticks:"));
         controlPanel.add(tickCountField);
         controlPanel.add(tickButton);
+
+        // Set font for all main components
+        Font mainFont = new Font("Monospaced", Font.PLAIN, FONT_SIZE);
+        tickButton.setFont(mainFont);
+        tickCountField.setFont(mainFont);
+        // Set font for all labels in control panel
+        for (Component comp : controlPanel.getComponents()) {
+            if (comp instanceof JLabel) {
+                comp.setFont(mainFont);
+            }
+        }
+
         mainPanel.add(controlPanel, BorderLayout.SOUTH);
 
         // Merchant List
@@ -71,6 +85,7 @@ public class SimulationGUI extends JFrame {
                 updateDetailsArea();
             }
         });
+        merchantList.setFont(mainFont);
         JScrollPane merchantListScrollPane = new JScrollPane(merchantList);
         merchantListScrollPane.setBorder(BorderFactory.createTitledBorder("Merchants"));
 
@@ -84,6 +99,7 @@ public class SimulationGUI extends JFrame {
                 updateDetailsArea();
             }
         });
+        orderList.setFont(mainFont);
         JScrollPane orderListScrollPane = new JScrollPane(orderList);
         orderListScrollPane.setBorder(BorderFactory.createTitledBorder("Order Book"));
 
@@ -98,6 +114,7 @@ public class SimulationGUI extends JFrame {
                 updateDetailsArea();
             }
         });
+        priceList.setFont(mainFont);
         JScrollPane priceListScrollPane = new JScrollPane(priceList);
         priceListScrollPane.setBorder(BorderFactory.createTitledBorder("Item Prices"));
 
@@ -107,7 +124,7 @@ public class SimulationGUI extends JFrame {
         // Text card
         detailsTextArea = new JTextArea();
         detailsTextArea.setEditable(false);
-        detailsTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        detailsTextArea.setFont(mainFont);
         JScrollPane textScrollPane = new JScrollPane(detailsTextArea);
         textScrollPane.setBorder(BorderFactory.createTitledBorder("Details"));
         detailsPanel.add(textScrollPane, "TEXT");
@@ -119,7 +136,7 @@ public class SimulationGUI extends JFrame {
         // Event Log
         eventLogArea = new JTextArea();
         eventLogArea.setEditable(false);
-        eventLogArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        eventLogArea.setFont(mainFont);
         JScrollPane eventLogScrollPane = new JScrollPane(eventLogArea);
         eventLogScrollPane.setBorder(BorderFactory.createTitledBorder("Event Log"));
 
