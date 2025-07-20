@@ -29,6 +29,21 @@ public class PriceHistoryPanel extends JPanel {
         // Draw axes
         g2.drawLine(pad, h - pad, pad, pad);
         g2.drawLine(pad, h - pad, w - pad, h - pad);
+        // Draw Y-axis labels
+        g2.setColor(Color.BLACK);
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 8));
+        // Min label (bottom)
+        String minLabel = String.format("$%.2f-", min);
+        g2.drawString(minLabel, 3, h - pad + 5);
+        // Max label (top)
+        String maxLabel = String.format("$%.2f-", max);
+        g2.drawString(maxLabel, 3, pad + 5);
+        // Mid label (middle)
+        double mid = min + (max - min) / 2.0;
+        String midLabel = String.format("$%.2f-", mid);
+        int midY = pad + (int) ((double) (h - 2 * pad) * (max - mid) / range);
+        g2.drawString(midLabel, 3, midY + 5);
+        g2.setColor(Color.BLUE);
         // Draw line series
         int prevX = pad;
         int prevY = h - pad;

@@ -5,7 +5,7 @@ import java.util.List;
 
 public class SimulationGUI extends JFrame {
 
-    private static final int FONT_SIZE = 25;
+    private static final int FONT_SIZE = 10;
 
     private final Main mainApp;
     private JList<String> merchantList;
@@ -80,7 +80,8 @@ public class SimulationGUI extends JFrame {
         merchantList = new JList<>(merchantListModel);
         merchantList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         merchantList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
+            if (!e.getValueIsAdjusting() && merchantList.getSelectedIndex() != -1) {
+                priceList.clearSelection();
                 orderList.clearSelection();
                 updateDetailsArea();
             }
@@ -94,7 +95,8 @@ public class SimulationGUI extends JFrame {
         orderList = new JList<>(orderListModel);
         orderList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         orderList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
+            if (!e.getValueIsAdjusting() && orderList.getSelectedIndex() != -1) {
+                priceList.clearSelection();
                 merchantList.clearSelection();
                 updateDetailsArea();
             }
@@ -108,7 +110,7 @@ public class SimulationGUI extends JFrame {
         priceList = new JList<>(priceListModel);
         priceList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         priceList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
+            if (!e.getValueIsAdjusting() && priceList.getSelectedIndex() != -1) {
                 merchantList.clearSelection();
                 orderList.clearSelection();
                 updateDetailsArea();
@@ -242,28 +244,28 @@ public class SimulationGUI extends JFrame {
     }
 
     private void updateDetailsArea() {
-        // Price history selected: show graph
         if (priceList.getSelectedIndex() != -1) {
+            // Price history selected: show graph
             int idx = priceList.getSelectedIndex();
             List<Double> history = ValuationChart.TYPE_PRICE_HISTORY.get(idx);
             priceHistoryPanel.setHistory(history);
-            priceHistoryPanel.repaint();
             detailsCardLayout.show(detailsPanel, "CHART");
-            return;
-        }
-        // Merchant selected: show text
-        if (merchantList.getSelectedIndex() != -1) {
+            priceHistoryPanel.revalidate();
+            priceHistoryPanel.repaint();
+        } else if (merchantList.getSelectedIndex() != -1) {
+            // Merchant selected: show text
             Merchant selectedMerchant = Merchant.MERCHANTS[merchantList.getSelectedIndex()];
             detailsTextArea.setText(selectedMerchant.getStats());
             detailsCardLayout.show(detailsPanel, "TEXT");
         } else if (orderList.getSelectedIndex() != -1) {
+            // Order selected: show text
             Order selectedOrder = orderList.getSelectedValue();
             detailsTextArea.setText(selectedOrder.getDetailedString());
             detailsCardLayout.show(detailsPanel, "TEXT");
         } else {
+            // No selection: show default text
             detailsTextArea.setText("Select a merchant, order, or price item to see details.");
             detailsCardLayout.show(detailsPanel, "TEXT");
         }
     }
 }
-
